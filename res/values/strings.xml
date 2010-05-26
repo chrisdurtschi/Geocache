@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    
+    <string name="app_name">Geocache</string>
+<string name="authority">com.robotapocalypse.android.geocache</string>
+<string name="document_url">http://geo.divergentlogic.com/%1$s</string>
+<string name="attachment_url">http://geo.divergentlogic.com/%1$s/capture.jpg?rev=%2$s</string>
+<string name="document_id">%1$s_%2$d</string>
+<string name="dialog_loading_location">Aquiring Location....</string>
+<string name="dialog_creating_document">Tagging...</string>
+<string name="dialog_uploading_image">Sending Image...</string>
+</resources>
