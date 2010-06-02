@@ -6,6 +6,7 @@ import android.content.Context;
 import android.graphics.PixelFormat;
 import android.hardware.Camera;
 import android.hardware.Camera.Parameters;
+import android.location.Location;
 import android.util.AttributeSet;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -14,7 +15,7 @@ public class CameraSurfaceView extends SurfaceView {
    Camera mCamera;
    SurfaceHolder mPreviewHolder;
    Boolean mPreviewRunning = false;
-   int mPictureWidth, mPictureHeight;
+   int mPreviewWidth, mPreviewHeight, mPictureWidth, mPictureHeight;
    
    // CONSTRUCTORS
 
@@ -40,6 +41,14 @@ public class CameraSurfaceView extends SurfaceView {
    public Camera getCamera() {
 	   return mCamera;
    }
+
+   public void setPreviewWidth(int width) {
+	   mPreviewWidth = width;
+   }
+   
+   public void setPreviewHeight(int height) {
+	   mPreviewHeight = height;
+   }
    
    public void setPictureWidth(int width) {
 	   mPictureWidth = width;
@@ -47,6 +56,40 @@ public class CameraSurfaceView extends SurfaceView {
    
    public void setPictureHeight(int height) {
 	   mPictureHeight = height;
+   }   
+   
+   
+   public void createCamera() {
+	   if (mCamera == null) {
+		   mCamera = Camera.open();
+		   try {
+			   Parameters params = mCamera.getParameters();
+			   params.setPreviewSize(mPreviewWidth, mPreviewHeight);
+			   params.setPreviewFormat(PixelFormat.JPEG);
+			   params.setPictureSize(mPictureWidth, mPictureHeight);
+			   params.setPictureFormat(PixelFormat.JPEG);
+			   mCamera.setParameters(params);
+			   mCamera.setPreviewDisplay(mPreviewHolder);
+		   } catch (IOException exception) {
+			   mCamera.release();
+			   mCamera = null;
+			   // TODO: add more exception handling logic here
+		   }
+	   }
+   }
+   
+   public void startPreview() {
+	   if (!mPreviewRunning && mCamera != null) {
+		   mCamera.startPreview();
+		   mPreviewRunning = true;
+	   }
+   }
+   
+   public void stopPreview() {
+	   if (mPreviewRunning && mCamera != null) {
+		   mCamera.stopPreview();
+		   mPreviewRunning = false;
+	   }
    }
    
    
@@ -55,35 +98,18 @@ public class CameraSurfaceView extends SurfaceView {
    SurfaceHolder.Callback surfaceHolderListener = new SurfaceHolder.Callback() {
 	   
 	   public void surfaceCreated(SurfaceHolder holder) {
-		   mCamera = Camera.open();
-		   try {
-			   mCamera.setPreviewDisplay(mPreviewHolder);
-	        } catch (IOException exception) {
-	            mCamera.release();
-	            mCamera = null;
-	            // TODO: add more exception handling logic here
-	        }
+		   CameraSurfaceView.this.createCamera();
 	   }
 	   
 	   public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-		   if (mPreviewRunning) {
-			   mCamera.stopPreview();
-		   }
-		   Parameters params = mCamera.getParameters();
-		   params.setPreviewSize(800, 480);
-		   params.setPreviewFormat(PixelFormat.JPEG);
-		   params.setPictureSize(mPictureWidth, mPictureHeight);
-		   params.setPictureFormat(PixelFormat.JPEG);
-		   mCamera.setParameters(params);
-		   mCamera.startPreview();
-		   mPreviewRunning = true;
+		   CameraSurfaceView.this.stopPreview();
+		   CameraSurfaceView.this.startPreview();
 	   }
 
 	   public void surfaceDestroyed(SurfaceHolder holder) {
-		   mCamera.stopPreview();
+		   CameraSurfaceView.this.stopPreview();
 		   mCamera.release();
 		   mCamera = null;
-		   mPreviewRunning = false;
 	   }
    };
 }

@@ -14,9 +14,14 @@ public final class R {
         public static final int icon=0x7f020000;
     }
     public static final class id {
-        public static final int LinearLayout=0x7f050001;
+        public static final int camera_panel=0x7f050005;
         public static final int camera_surface=0x7f050002;
+        public static final int preview_frame=0x7f050003;
+        public static final int preview_image=0x7f050004;
+        public static final int retry=0x7f050007;
+        public static final int submit=0x7f050006;
         public static final int tag_button=0x7f050000;
+        public static final int tag_frame=0x7f050001;
     }
     public static final class layout {
         public static final int main=0x7f030000;
