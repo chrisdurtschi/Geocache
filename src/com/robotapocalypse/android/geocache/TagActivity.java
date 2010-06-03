@@ -1,5 +1,9 @@
 package com.robotapocalypse.android.geocache;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FilenameFilter;
 import java.io.IOException;
 
 import org.apache.http.HttpResponse;
@@ -7,8 +11,7 @@ import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpPut;
-import org.apache.http.conn.ClientConnectionRequest;
-import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.entity.FileEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicResponseHandler;
 import org.apache.http.impl.client.DefaultHttpClient;
@@ -22,17 +25,15 @@ import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.PixelFormat;
+import android.graphics.Bitmap.CompressFormat;
 import android.hardware.Camera;
-import android.hardware.Camera.Parameters;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.telephony.TelephonyManager;
-import android.view.KeyEvent;
-import android.view.MotionEvent;
+import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -51,7 +52,6 @@ public class TagActivity extends Activity {
 	LocationManager mLocationManager = null;
 	Location mLocation = null;
 	Location mPictureLocation = null;
-	byte[] mImageData;
 	
 	CameraSurfaceView mCameraSurface;
 	FrameLayout mPreviewFrame;
@@ -86,7 +86,6 @@ public class TagActivity extends Activity {
         mCameraSurface.setVisibility(View.INVISIBLE);
         mCameraSurface.setOnClickListener(new View.OnClickListener() {
 			
-			@Override
 			public void onClick(View v) {
 				takePicture();
 			}
@@ -94,15 +93,13 @@ public class TagActivity extends Activity {
         
         mSubmit.setOnClickListener(new View.OnClickListener() {
 			
-			@Override
 			public void onClick(View v) {
-				new TagTask().execute(mImageData);
+				new TagTask().execute("");
 			}
 		});
         
         mRetry.setOnClickListener(new View.OnClickListener() {
 			
-			@Override
 			public void onClick(View v) {
 				TagActivity.this.showCameraSurface();
 			}
@@ -205,25 +202,32 @@ public class TagActivity extends Activity {
 	void takePicture() {
 		mCameraSurface.getCamera().autoFocus(new Camera.AutoFocusCallback() {
 			
-			@Override
 			public void onAutoFocus(boolean success, Camera camera) {
 				if (success) {
 					mPictureLocation = new Location(mLocation);
-					Parameters params = camera.getParameters();
-					params.setGpsAltitude(mPictureLocation.getAltitude());
-					params.setGpsLatitude(mPictureLocation.getLatitude());
-					params.setGpsLongitude(mPictureLocation.getLongitude());
-					params.setGpsTimestamp(mPictureLocation.getTime());
-					camera.setParameters(params);
 				   
 					camera.takePicture(null, null, new Camera.PictureCallback() {
 						
-						@Override
 						public void onPictureTaken(byte[] data, Camera camera) {
 							TagActivity.this.showPreviewFrame();
-							mImageData = data;
-							Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
-							mPreviewImage.setImageBitmap(bitmap);
+
+							Bitmap original = BitmapFactory.decodeByteArray(data, 0, data.length);
+							Bitmap cropped = Bitmap.createBitmap(original, 212, 84, 600, 600);
+							
+							FileOutputStream fos = null;
+							try {
+								fos = TagActivity.this.openFileOutput("tag.jpg", Context.MODE_PRIVATE);
+								cropped.compress(CompressFormat.JPEG, 100, fos);
+								fos.close();
+							} catch (FileNotFoundException e) {
+								// TODO Auto-generated catch block
+								Log.e("Save Cached Tag", e.getMessage(), e);
+							} catch (IOException e) {
+								// TODO Auto-generated catch block
+								Log.e("Save Cached Tag", e.getMessage(), e);
+							}							
+
+							mPreviewImage.setImageBitmap(cropped);
 						}
 					});
 				}
@@ -232,16 +236,16 @@ public class TagActivity extends Activity {
 	}
 	
 	
-	private class TagTask extends AsyncTask<byte[], Integer, String> {
+	private class TagTask extends AsyncTask<String, Integer, String> {
 		final HttpClient mHttpClient = new DefaultHttpClient();
 		final TelephonyManager mTelephonyManager = (TelephonyManager)getSystemService(Context.TELEPHONY_SERVICE);
 
 		@Override
-		protected String doInBackground(byte[]... data) {
+		protected String doInBackground(String... stuff) {
 			try {
 				String id = String.format(getString(R.string.document_id), mTelephonyManager.getDeviceId(), System.currentTimeMillis());
 				String rev = createDocument(id);
-				HttpResponse response = sendImage(id, rev, data[0]);
+				HttpResponse response = sendImage(id, rev);
 				if (response.getStatusLine().getStatusCode() >= 300) {
 					return "Error uploading image: " + response.getStatusLine().getStatusCode() + " - " + response.getStatusLine().getReasonPhrase();
 				}
@@ -300,16 +304,23 @@ public class TagActivity extends Activity {
 			}
 		}
 		
-		HttpResponse sendImage(String id, String rev, byte[] data) throws ClientProtocolException, IOException, JSONException {
+		HttpResponse sendImage(String id, String rev) throws ClientProtocolException, IOException, JSONException {
 			String url = String.format(getString(R.string.attachment_url), id, rev);
 			HttpPut request = new HttpPut(url);
 			request.setHeader("Content-Type", "image/jpeg");
 			request.setHeader("Accept", "application/json");
 			
-			ByteArrayEntity e = new ByteArrayEntity(data);
+			File file = TagActivity.this.getFilesDir().listFiles(new TagFilter())[0];
+			FileEntity e = new FileEntity(file, "image/jpeg");
 			request.setEntity(e);
 			
 			return mHttpClient.execute(request);
 		}
-	}	
+	}
+	
+	class TagFilter implements FilenameFilter {
+	    public boolean accept(File dir, String name) {
+	        return (name.endsWith("tag.jpg"));
+	    }
+	}
 }
